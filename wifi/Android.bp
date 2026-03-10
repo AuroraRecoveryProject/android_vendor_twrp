@@ -1,0 +1,77 @@
+// TWRP recovery-specific wpa_cli and wpa_supplicant
+// The vendor wpa_supplicant (Oplus/QTI) is tightly coupled to Android HAL services
+// (via vendor.oplus.hardware.wifi.supplicant AIDL) and cannot run standalone in recovery.
+// These recovery-specific binaries are compiled from external/wpa_supplicant_8 source
+// with plain Unix socket ctrl_interface and NO AIDL dependencies.
+//
+// If the build fails with "module reference :wpa_supplicant_lib_srcs not found", run:
+//   grep -n 'filegroup\|name:' external/wpa_supplicant_8/wpa_supplicant/Android.bp | head -20
+// and update the srcs reference accordingly.
+
+package {
+    default_applicable_licenses: ["external_wpa_supplicant_8_license"],
+}
+
+cc_binary {
+    name: "wpa_cli_recovery",
+    stem: "wpa_cli",
+    recovery: true,
+
+    srcs: [":wpa_cli_srcs"],
+
+    include_dirs: [
+        "external/wpa_supplicant_8/wpa_supplicant",
+        "external/wpa_supplicant_8/wpa_supplicant/src",
+        "external/wpa_supplicant_8/wpa_supplicant/src/common",
+        "external/wpa_supplicant_8/wpa_supplicant/src/utils",
+    ],
+
+    cflags: [
+        "-DANDROID_P2P",
+        "-DCONFIG_ANDROID_LOG",
+        "-DCONFIG_CTRL_IFACE",
+        "-DCONFIG_CTRL_IFACE_UNIX",
+        "-DCONFIG_WPA_CLI_HISTORY_DIR=\"/tmp\"",
+        "-Wall",
+        "-Wno-unused-parameter",
+        "-Wno-unused-variable",
+        "-Wno-sign-compare",
+        "-Wno-macro-redefined",
+    ],
+
+    shared_libs: [
+        "libcutils",
+        "liblog",
+    ],
+}
+
+// NOTE: wpa_supplicant_recovery is defined in
+//   external/wpa_supplicant_8/wpa_supplicant/Android.bp
+// because defaults like wpa_supplicant_driver_srcs_default and
+// wpa_supplicant_includes_default use relative srcs/local_include_dirs
+// that must be resolved from the external/wpa_supplicant_8/wpa_supplicant/ directory.
+//
+// The block to append on Linux (external/wpa_supplicant_8/wpa_supplicant/Android.bp):
+//
+// EVP_PKEY_from_keystore (tls_openssl.c:1464) is an Android-only symbol from
+// libkeystore-engine-wifi-hidl, which is absent in recovery. The AOSP version
+// here does NOT guard it with ANDROID_LIB_STUB, so we provide a stub src file.
+// Create external/wpa_supplicant_8/wpa_supplicant/src/crypto/evp_pkey_stub_recovery.c:
+//   #include <openssl/evp.h>
+//   EVP_PKEY *EVP_PKEY_from_keystore(const char *key_id) { (void)key_id; return NULL; }
+//
+// cc_binary {
+//     name: "wpa_supplicant_recovery",
+//     stem: "wpa_supplicant",
+//     recovery: true,
+//     defaults: [
+//         "wpa_supplicant_srcs_default",
+//         "wpa_supplicant_no_aidl_cflags_default",
+//         "wpa_supplicant_includes_default",
+//     ],
+//     srcs: ["src/crypto/evp_pkey_stub_recovery.c"],
+//     shared_libs: [
+//         "libcrypto", "libssl", "libcutils", "liblog",
+//         "libnl", "libutils", "libbase", "libc++",
+//     ],
+// }
