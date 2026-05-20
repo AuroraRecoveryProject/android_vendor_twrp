@@ -1,3 +1,9 @@
+# Wi-Fi and WPA supplicant packages
+PRODUCT_PACKAGES += \
+    wpa_cli_recovery \
+    wpa_supplicant_recovery \
+    wpa_supplicant
+
 # Additional tools
 PRODUCT_PACKAGES += \
     bash \
